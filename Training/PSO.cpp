@@ -17,9 +17,11 @@ std::vector<double> NN::PSO(
     Base*                           temporary_network           = network_creation_func();
     double                          weights_length              = temporary_network->GetWeights().size();
     std::vector<Particle*>          swarm                       = std::vector<Particle*>(particle_count);
-    std::vector<double>*            best_global_position        = new std::vector<double>(weights_length);
-    double*                         best_global_error           = new double(std::numeric_limits<double>::max());
-    uint32_t*                       global_repeat_counter       = new uint32_t(0);
+    std::vector<double>             best_global_position        = std::vector<double>(weights_length);
+    double                          best_global_error           = std::numeric_limits<double>::max();
+    uint32_t                        global_repeat_counter       = 0;
+    pthread_cond_t                  global_cond_var             = PTHREAD_COND_INITIALIZER;
+    pthread_mutex_t                 sync_mutex                  = PTHREAD_MUTEX_INITIALIZER;
     
     std::srand(std::time(NULL));
 
@@ -47,15 +49,19 @@ std::vector<double> NN::PSO(
         }
 
         //Global
-        swarm[i]->best_global_position  = best_global_position;
-        swarm[i]->best_global_error     = best_global_error;
+        swarm[i]->best_global_position  = &best_global_position;
+        swarm[i]->best_global_error     = &best_global_error;
         swarm[i]->train_data            = &train_data;
 
         //Threading
         swarm[i]->thread_id             = pthread_t();
+        swarm[i]->thread_mutex          = PTHREAD_MUTEX_INITIALIZER;
+        swarm[i]->sync_mutex            = &sync_mutex;
+        swarm[i]->thread_cond_var       = PTHREAD_COND_INITIALIZER;
+        swarm[i]->global_cond_var       = &global_cond_var;
         swarm[i]->repeat_counter        = 0;
         swarm[i]->repeat_amount         = repeat;
-        swarm[i]->global_repeat_counter = global_repeat_counter;
+        swarm[i]->global_repeat_counter = &global_repeat_counter;
     }
 
     //Create threads
@@ -68,20 +74,22 @@ std::vector<double> NN::PSO(
     }
 
     //Train Neural Network
-    while(*global_repeat_counter < repeat)
+    while(global_repeat_counter < repeat)
     {
+        pthread_mutex_lock(&sync_mutex);
+        //Wait for other threads
         for (uint32_t i = 0; i < particle_count; i++)
         {
-            while (swarm[i]->repeat_counter <= *global_repeat_counter){}
-            //Update Global Variables
-            if (*best_global_error > swarm[i]->error)
+            while (swarm[i]->repeat_counter <= global_repeat_counter)
             {
-                *best_global_position    = swarm[i]->position;
-                *best_global_error       = swarm[i]->error;
-            } 
+                pthread_cond_wait(&swarm[i]->thread_cond_var, &sync_mutex);
+            }
+            
         }
-        std::cout << "Epoch: " << (*global_repeat_counter) << " MSR: " << (*best_global_error) << std::endl;
-        (*global_repeat_counter)++;
+        std::cout << "Epoch: " << global_repeat_counter << " MSR: " << best_global_error << std::endl;
+        pthread_cond_broadcast(&global_cond_var);
+        global_repeat_counter++;
+        pthread_mutex_unlock(&sync_mutex);
     }
 
     //Wait for threads
@@ -94,18 +102,13 @@ std::vector<double> NN::PSO(
     }
 
     //Clean up
-    std::vector<double> return_value = *best_global_position;
-    delete best_global_position;
-    delete best_global_error;
     delete temporary_network;
-    delete global_repeat_counter;
     for (uint32_t i = 0; i < particle_count; i++)
     {
         delete swarm[i]->particle_network;
         delete swarm[i];
     }
-
-    return return_value;
+    return best_global_position;
 }
 
 void* NN::PSOParticleThread(void* attr)
@@ -128,7 +131,12 @@ void* NN::PSOParticleThread(void* attr)
 
     while (particle->repeat_counter < particle->repeat_amount)
     {
-        while (particle->repeat_counter > *particle->global_repeat_counter){}
+        //Wait for other threads
+        pthread_mutex_lock(particle->sync_mutex);
+        while (particle->repeat_counter > *particle->global_repeat_counter)
+        {
+            pthread_cond_wait(particle->global_cond_var, particle->sync_mutex);
+        }
 
         //Update Particle Velocity
         for (uint32_t i = 0; i < weights_length; i++)
@@ -136,8 +144,8 @@ void* NN::PSOParticleThread(void* attr)
             r1 = (double)std::rand() / (double)RAND_MAX;
             r2 = (double)std::rand() / (double)RAND_MAX;
             new_velocity[i] =   ((inertia_weight  	*       particle->velocity[i]) +
-                                (cognitive_weight 	* r1 * (particle->best_position[i]              - particle->position[i])) +
-                                (social_weight 	* r2 * ((*particle->best_global_position)[i] 	- particle->position[i])));
+                                 (cognitive_weight 	* r1 * (particle->best_position[i]              - particle->position[i])) +
+                                 (social_weight 	* r2 * ((*particle->best_global_position)[i] 	- particle->position[i])));
         }
         particle->velocity = new_velocity;
 
@@ -163,7 +171,18 @@ void* NN::PSOParticleThread(void* attr)
             particle->best_error       = new_error;
             particle->best_position    = new_position;
         }
+
+        //Update Global Variables
+        if (*particle->best_global_error > particle->error)
+        {
+            pthread_mutex_lock(&particle->thread_mutex);
+            *particle->best_global_position    = particle->position;
+            *particle->best_global_error       = particle->error;
+            pthread_mutex_unlock(&particle->thread_mutex);
+        }
+        pthread_cond_signal(&particle->thread_cond_var);
         particle->repeat_counter++;
+        pthread_mutex_unlock(particle->sync_mutex);
     }
     pthread_exit(NULL);
 }
