@@ -11,7 +11,7 @@ NN::Base* CreateNetwork()
 
 int main()
 {
-    //NN::Normalize(IrisData::dataset, { 0, 1, 2, 3 });
+    NN::Normalize(IrisData::dataset, { 0, 1, 2, 3 });
     NN::Randomize(IrisData::dataset);
 
     //Actual Neural Network
@@ -20,7 +20,7 @@ int main()
         Activation::ActivationType::LOGISTIC_SIGMOID,
         Activation::ActivationType::LOGISTIC_SIGMOID
     });
-
+    
     std::cout << "PSO Threading Test" << std::endl;
     std::vector<double> good_weights = NN::PSO(IrisData::dataset, 20, 1000, &CreateNetwork);
 
