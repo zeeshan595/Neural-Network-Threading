@@ -1,0 +1,30 @@
+{
+    "version": "0.1.0",
+    "command": "",
+    "isShellCommand": true,
+    "echoCommand": true,
+    "showOutput": "always",
+    "tasks": [
+        {
+            "taskName": "build",
+            "isBuildCommand": true,
+            "command": "g++",
+            "args": [
+                "main.cpp",
+                
+                "-g",
+                "-pthread",
+                "-std=c++11",
+
+                "-o","build"
+            ]
+        },
+        {
+            "taskName": "clean",
+            "command": "rm",
+            "args": [
+                "build"
+            ]
+        }
+    ]
+}
