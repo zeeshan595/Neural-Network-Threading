@@ -20,9 +20,11 @@ int main()
         Activation::ActivationType::LOGISTIC_SIGMOID,
         Activation::ActivationType::LOGISTIC_SIGMOID
     });
-    
+
     std::cout << "PSO Threading Test" << std::endl;
-    std::vector<double> good_weights = NN::PSO(IrisData::dataset, 20, 1000, &CreateNetwork);
+    std::vector<double> good_weights = NN::PSO(IrisData::dataset, 50, 1000, &CreateNetwork);
+    my_network.SetWeights(good_weights);
+    std::cout << "MSR: " << my_network.GetMeanSquaredError(IrisData::dataset) << std::endl;
 
     std::cout << "End Of Program" << std::endl;
     std::cin.get();

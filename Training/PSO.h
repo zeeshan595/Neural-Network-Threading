@@ -25,12 +25,8 @@ namespace NN
         //Threading & Sync
         pthread_t                           thread_id;
         pthread_mutex_t                     thread_mutex;
-        pthread_mutex_t*                    sync_mutex                  = NULL;
-        pthread_cond_t                      thread_cond_var;
-        pthread_cond_t*                     global_cond_var             = NULL;
         uint32_t                            repeat_counter              = -1;
         uint32_t                            repeat_amount               = -1;
-        uint32_t*                           global_repeat_counter       = NULL;
     };
 
     void* PSOParticleThread(void* attr);

@@ -20,8 +20,6 @@ std::vector<double> NN::PSO(
     std::vector<double>             best_global_position        = std::vector<double>(weights_length);
     double                          best_global_error           = std::numeric_limits<double>::max();
     uint32_t                        global_repeat_counter       = 0;
-    pthread_cond_t                  global_cond_var             = PTHREAD_COND_INITIALIZER;
-    pthread_mutex_t                 sync_mutex                  = PTHREAD_MUTEX_INITIALIZER;
     
     std::srand(std::time(NULL));
 
@@ -56,12 +54,8 @@ std::vector<double> NN::PSO(
         //Threading
         swarm[i]->thread_id             = pthread_t();
         swarm[i]->thread_mutex          = PTHREAD_MUTEX_INITIALIZER;
-        swarm[i]->sync_mutex            = &sync_mutex;
-        swarm[i]->thread_cond_var       = PTHREAD_COND_INITIALIZER;
-        swarm[i]->global_cond_var       = &global_cond_var;
         swarm[i]->repeat_counter        = 0;
         swarm[i]->repeat_amount         = repeat;
-        swarm[i]->global_repeat_counter = &global_repeat_counter;
     }
 
     //Create threads
@@ -73,24 +67,19 @@ std::vector<double> NN::PSO(
         }
     }
 
-    //Train Neural Network
-    while(global_repeat_counter < repeat)
+    uint32_t epoch = 0;
+    while (epoch < repeat)
     {
-        pthread_mutex_lock(&sync_mutex);
-        //Wait for other threads
         for (uint32_t i = 0; i < particle_count; i++)
         {
-            while (swarm[i]->repeat_counter <= global_repeat_counter)
-            {
-                pthread_cond_wait(&swarm[i]->thread_cond_var, &sync_mutex);
-            }
-            
+            if (epoch < swarm[i]->repeat_counter)
+                epoch =  swarm[i]->repeat_counter;
         }
-        std::cout << "Epoch: " << global_repeat_counter << " MSR: " << best_global_error << std::endl;
-        pthread_cond_broadcast(&global_cond_var);
-        global_repeat_counter++;
-        pthread_mutex_unlock(&sync_mutex);
+
+        std::cout << "Epoch: " << epoch << " MSR: " << best_global_error << std::endl;
     }
+
+    std::cout << "Waiting for all threads to finish..." << std::endl;
 
     //Wait for threads
     for (uint32_t i = 0; i < particle_count; i++)
@@ -131,13 +120,6 @@ void* NN::PSOParticleThread(void* attr)
 
     while (particle->repeat_counter < particle->repeat_amount)
     {
-        //Wait for other threads
-        pthread_mutex_lock(particle->sync_mutex);
-        while (particle->repeat_counter > *particle->global_repeat_counter)
-        {
-            pthread_cond_wait(particle->global_cond_var, particle->sync_mutex);
-        }
-
         //Update Particle Velocity
         for (uint32_t i = 0; i < weights_length; i++)
         {
@@ -175,14 +157,18 @@ void* NN::PSOParticleThread(void* attr)
         //Update Global Variables
         if (*particle->best_global_error > particle->error)
         {
-            pthread_mutex_lock(&particle->thread_mutex);
+            if (pthread_mutex_lock(&particle->thread_mutex) != 0)
+            {
+                throw std::runtime_error("ERROR [PSOParticleThread]: Mutex lock failure");
+            }
             *particle->best_global_position    = particle->position;
             *particle->best_global_error       = particle->error;
-            pthread_mutex_unlock(&particle->thread_mutex);
+            if (pthread_mutex_unlock(&particle->thread_mutex) != 0)
+            {
+                throw std::runtime_error("ERROR [PSOParticleThread]: Mutex unlock failure");
+            }
         }
-        pthread_cond_signal(&particle->thread_cond_var);
         particle->repeat_counter++;
-        pthread_mutex_unlock(particle->sync_mutex);
     }
     pthread_exit(NULL);
 }
