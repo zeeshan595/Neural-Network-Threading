@@ -5,30 +5,36 @@ namespace NN
 {
     struct Particle
     {
-        std::vector<double>     velocity;
+        //Particle Variables
+        std::vector<double>                 velocity;
 
-        std::vector<double>     position;
-        std::vector<double>     best_position;
+        std::vector<double>                 position;
+        std::vector<double>                 best_position;
 
-        double                  error               = 0.0;
-        double                  best_error          = 0.0;
-        
-        Base*                   network             = NULL;
-        pthread_t*              thread_id           = NULL;
+        double                              error                       = -1.0;
+        double                              best_error                  = -1.0;
 
-        //Global
-        std::vector<double>*    best_global_position;
-        double*                 best_global_error;
+        //Network
+        Base*                               particle_network            = NULL;
 
-        //Train Data
-        std::vector<std::vector<double> >*  train_data;
+        //Global Variables
+        std::vector<std::vector<double> >*  train_data                  = NULL;
+        std::vector<double>*                best_global_position        = NULL;
+        double*                             best_global_error           = NULL;
+    
+        //Threading
+        pthread_t                           thread_id;
+        uint32_t                            repeat_counter              = -1;
+        uint32_t                            repeat_amount               = -1;
+        uint32_t*                           global_repeat_counter       = NULL;
     };
 
     void* PSOParticleThread(void* attr);
     std::vector<double> PSO(
         std::vector<std::vector<double> >   train_data,
+        uint32_t                            particle_count,
         uint32_t                            repeat,
-        std::vector<Base*>                  base_networks
+        Base*                               (*network_creation_func)()
     );
 };
 
