@@ -3,11 +3,6 @@
 
 namespace NN
 {
-    struct MFNNThreadStructure
-    {
-        Neuron*     neuron      = NULL; 
-    };
-
     class MFNN : public Base
     {
     public:
