@@ -9,6 +9,11 @@ NN::Base* CreateNetwork()
     });
 }
 
+void training_call_back(double* progress, double* msr, std::vector<double>* weights)
+{
+    std::cout << "Progress: " << *progress << std::endl;
+}
+
 int main()
 {
     NN::Normalize(IrisData::dataset, { 0, 1, 2, 3 });
@@ -22,7 +27,7 @@ int main()
     });
 
     std::cout << "PSO Threading Test" << std::endl;
-    std::vector<double> good_weights = NN::PSO(IrisData::dataset, 50, 1000, &CreateNetwork);
+    std::vector<double> good_weights = NN::PSO(IrisData::dataset, 50, 1000, &CreateNetwork, &training_call_back);
     my_network.SetWeights(good_weights);
     std::cout << "MSR: " << my_network.GetMeanSquaredError(IrisData::dataset) << std::endl;
 

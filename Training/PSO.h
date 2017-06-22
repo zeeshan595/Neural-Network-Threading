@@ -24,9 +24,9 @@ namespace NN
     
         //Threading & Sync
         pthread_t                           thread_id;
-        pthread_mutex_t                     thread_mutex;
+        pthread_mutex_t*                    global_mutex                = NULL;
+        uint32_t*                           repeat_amount               = NULL;
         uint32_t                            repeat_counter              = -1;
-        uint32_t                            repeat_amount               = -1;
     };
 
     void* PSOParticleThread(void* attr);
@@ -34,7 +34,8 @@ namespace NN
         std::vector<std::vector<double> >   train_data,
         uint32_t                            particle_count,
         uint32_t                            repeat,
-        Base*                               (*network_creation_func)()
+        Base*                               (*network_creation_func)(),
+        void                                (*training_call_back)(double*, double*, std::vector<double>*)
     );
 };
 

@@ -2,7 +2,8 @@ std::vector<double> NN::PSO(
     std::vector<std::vector<double> >   train_data,
     uint32_t                            particle_count,
     uint32_t                            repeat,
-    Base*                               (*network_creation_func)()
+    Base*                               (*network_creation_func)(),
+    void                                (*training_call_back)(double*, double*, std::vector<double>*)
 ){
     if (repeat < 1)
         throw std::runtime_error("ERROR [PSO]: Repeat must be greater than 0.");
@@ -19,7 +20,7 @@ std::vector<double> NN::PSO(
     std::vector<Particle*>          swarm                       = std::vector<Particle*>(particle_count);
     std::vector<double>             best_global_position        = std::vector<double>(weights_length);
     double                          best_global_error           = std::numeric_limits<double>::max();
-    uint32_t                        global_repeat_counter       = 0;
+    pthread_mutex_t                 global_mutex                = PTHREAD_MUTEX_INITIALIZER;
     
     std::srand(std::time(NULL));
 
@@ -53,9 +54,9 @@ std::vector<double> NN::PSO(
 
         //Threading
         swarm[i]->thread_id             = pthread_t();
-        swarm[i]->thread_mutex          = PTHREAD_MUTEX_INITIALIZER;
+        swarm[i]->global_mutex          = &global_mutex;
+        swarm[i]->repeat_amount         = &repeat;
         swarm[i]->repeat_counter        = 0;
-        swarm[i]->repeat_amount         = repeat;
     }
 
     //Create threads
@@ -67,23 +68,27 @@ std::vector<double> NN::PSO(
         }
     }
 
-    uint32_t epoch = 0;
-    while (epoch < repeat)
+    uint32_t    threads_done    = 0;
+    double      progress        = 0.0;
+    while (threads_done != particle_count)
     {
+        threads_done    = 0;
+        progress        = 0;
         for (uint32_t i = 0; i < particle_count; i++)
         {
-            if (epoch < swarm[i]->repeat_counter)
-                epoch =  swarm[i]->repeat_counter;
+            if (repeat == swarm[i]->repeat_counter)
+                threads_done++;
+            
+            progress += (100.0 * (double)swarm[i]->repeat_counter) / ((double)repeat * (double)particle_count);
         }
-
-        std::cout << "Epoch: " << epoch << " MSR: " << best_global_error << std::endl;
+        if (training_call_back != NULL)
+            training_call_back(&progress, &best_global_error, &best_global_position);
     }
-
-    std::cout << "Waiting for all threads to finish..." << std::endl;
 
     //Wait for threads
     for (uint32_t i = 0; i < particle_count; i++)
     {
+        //std::cout << "Waiting On Thread: " << i << std::endl;
         if (pthread_join(swarm[i]->thread_id, NULL) != 0)
         {
             throw std::runtime_error("ERROR [PSO]: Unable to join thread " + std::to_string(i) + ".");
@@ -102,7 +107,7 @@ std::vector<double> NN::PSO(
 
 void* NN::PSOParticleThread(void* attr)
 {
-    Particle* particle = (Particle*) attr;
+    Particle*       particle                = (Particle*) attr;
     double          MIN                     = -10.0;
     double          MAX                     = +10.0;
     double          inertia_weight          = 0.729;
@@ -118,7 +123,7 @@ void* NN::PSOParticleThread(void* attr)
     std::vector<double>     new_position(weights_length);
     double                  new_error;
 
-    while (particle->repeat_counter < particle->repeat_amount)
+    while (particle->repeat_counter < *particle->repeat_amount)
     {
         //Update Particle Velocity
         for (uint32_t i = 0; i < weights_length; i++)
@@ -157,13 +162,13 @@ void* NN::PSOParticleThread(void* attr)
         //Update Global Variables
         if (*particle->best_global_error > particle->error)
         {
-            if (pthread_mutex_lock(&particle->thread_mutex) != 0)
+            if (pthread_mutex_lock(particle->global_mutex) != 0)
             {
                 throw std::runtime_error("ERROR [PSOParticleThread]: Mutex lock failure");
             }
             *particle->best_global_position    = particle->position;
             *particle->best_global_error       = particle->error;
-            if (pthread_mutex_unlock(&particle->thread_mutex) != 0)
+            if (pthread_mutex_unlock(particle->global_mutex) != 0)
             {
                 throw std::runtime_error("ERROR [PSOParticleThread]: Mutex unlock failure");
             }
