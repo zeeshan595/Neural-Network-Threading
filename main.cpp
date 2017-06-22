@@ -9,9 +9,9 @@ NN::Base* CreateNetwork()
     });
 }
 
-void training_call_back(double* progress, double* msr, std::vector<double>* weights)
+void training_call_back(double progress, double msr, std::vector<double> weights)
 {
-    std::cout << "Progress: " << *progress << std::endl;
+    std::cout << "Progress: " << progress << " MSR: " << msr << std::endl;
 }
 
 int main()

@@ -3,7 +3,7 @@ std::vector<double> NN::PSO(
     uint32_t                            particle_count,
     uint32_t                            repeat,
     Base*                               (*network_creation_func)(),
-    void                                (*training_call_back)(double*, double*, std::vector<double>*)
+    void                                (*training_call_back)(double, double, std::vector<double>)
 ){
     if (repeat < 1)
         throw std::runtime_error("ERROR [PSO]: Repeat must be greater than 0.");
@@ -82,7 +82,9 @@ std::vector<double> NN::PSO(
             progress += (100.0 * (double)swarm[i]->repeat_counter) / ((double)repeat * (double)particle_count);
         }
         if (training_call_back != NULL)
-            training_call_back(&progress, &best_global_error, &best_global_position);
+        {
+            training_call_back(progress, best_global_error, best_global_position);
+        }
     }
 
     //Wait for threads

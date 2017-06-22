@@ -35,7 +35,7 @@ namespace NN
         uint32_t                            particle_count,
         uint32_t                            repeat,
         Base*                               (*network_creation_func)(),
-        void                                (*training_call_back)(double*, double*, std::vector<double>*)
+        void                                (*training_call_back)(double, double, std::vector<double>)
     );
 };
 
