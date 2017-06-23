@@ -1,10 +1,14 @@
 NN::MFNN::MFNN(
-    std::vector<uint32_t> neurons_per_layer,
-    std::vector<Activation::ActivationType> layer_activations
+    std::vector<uint32_t>                       neurons_per_layer,
+    std::vector<Activation::ActivationType>     layer_activations
 ){
     if (neurons_per_layer.size() < 2)
     {
-        throw std::runtime_error("ERROR [MFNN]: there must be atleast 2 layers in the MFNN.");
+        throw std::runtime_error("ERROR [MFNN]: There must be atleast 2 layers in the MFNN.");
+    }
+    if (layer_activations.size() != neurons_per_layer.size())
+    {
+        throw std::runtime_error("ERROR [MFNN]: Layer activation size and neurons per layer size does not match.");
     }
 
     layers.resize(neurons_per_layer.size());

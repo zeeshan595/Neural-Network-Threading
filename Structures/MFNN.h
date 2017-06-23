@@ -15,8 +15,8 @@ namespace NN
         };
 
         MFNN(
-            std::vector<uint32_t> neurons_per_layer,
-            std::vector<Activation::ActivationType> layer_activations
+            std::vector<uint32_t>                       neurons_per_layer,
+            std::vector<Activation::ActivationType>     layer_activations
         );
         ~MFNN();
         

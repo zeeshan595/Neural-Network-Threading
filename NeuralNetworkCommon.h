@@ -18,6 +18,7 @@
 
 //DataSets
 #include "DataSets/Iris.h"
+#include "DataSets/Car.h"
 
 //Core
 #include "Core/Activation.h"
